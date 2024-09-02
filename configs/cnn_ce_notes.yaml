@@ -1,0 +1,21 @@
+defaults:
+  - etc
+  - cnn_ce
+  - _self_
+
+predict_onsets_and_frets: false
+predict_tab: true
+predict_notes: true
+
+model:
+  fc_string_block:
+    in_channels: 96
+
+criterions:
+  notes:
+    name: NoteFrameWiseLoss
+    config:
+      compute_jit: True
+      frame_smoothing_kernel: null
+      reduction: "sum"
+  criterion_weights: [0.5, 0.5]

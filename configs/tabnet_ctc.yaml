@@ -1,0 +1,35 @@
+defaults:
+  - etc
+  - tabnet_v2_finetune
+  - _self_
+
+trainer: CTCTrainer
+predict_notes: false
+predict_tab: true
+
+model:
+  predict_notes_blank: false # For MCTC
+  output_notes_activation: 'log_softmax' # For MCTC
+  fc_string_block_tab:
+    activation: log_softmax
+    bias: False
+
+data:
+  sequence: True
+  load_notes: ${predict_notes}
+  other_string_token: False
+  
+criterions:
+  tab:
+    name: CTCLossByString
+    config:
+      reduction: "sum"
+      zero_infinity: false
+  criterion_weights: [1]
+
+optimization: 
+  max_epochs: 10000
+  max_updates: null
+  learning_rate: 0.0001
+  accumulation_steps: 1
+  grad_norm_clip: null # 10.0

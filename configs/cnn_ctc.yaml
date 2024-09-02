@@ -1,0 +1,28 @@
+defaults:
+  - etc
+  - cnn
+  - _self_
+
+trainer: CTCTrainer
+predict_notes: false
+predict_tab: true
+
+model:
+  predict_notes_blank: false # For MCTC
+  output_notes_activation: 'log_softmax' # For MCTC
+  fc_string_block_tab:
+    activation: log_softmax
+    bias: False
+
+data:
+  sequence: True
+  load_notes: ${predict_notes}
+  other_string_token: False
+  
+criterions:
+  tab:
+    name: CTCLossByString
+    config:
+      reduction: "mean"
+      zero_infinity: false
+  criterion_weights: [1]

@@ -1,0 +1,57 @@
+data:
+  num_strings: ${num_strings}
+  log_level: ${log_level}
+  target_len: 100
+  target_num_classes: 23
+  target_num_strings: ${num_strings}
+  features_dir: null
+  segments_dir: "./data/segments"
+  targets_dir: "./data/targets"
+  timestep_change: "random"  # "random" or value
+  max_input_dim: null
+  cache_data_mem: False
+  audio_dir: "./data/audio"
+  num_workers: ${num_workers}
+  train_batch_size: 8 
+  valid_batch_size: 1 
+  train_shuffle: False
+  test_batch_size: 1 
+  train_csv_file: null
+  valid_csv_file: null
+  test_csv_file: null
+  dummy_csv_file: null
+  onset_target_feature_size: null
+  augment_onset: 0
+  audio_augmentation: 
+    pitch_shift_steps: null 
+    audio_augmentations_prob: 0.25
+    guitar_effects_prob: 0.25
+    GuitarEffects:
+      n_random_effects: 50
+      gain_prob: 0.1
+      distortion_prob: 0.1
+      compressor_prob: 0.1
+      delay_prob: 0.1
+      chorus_prob: 0.1
+      reverb_prob: 0.1
+    AudioAugmentations:
+      AddGaussianNoise:
+        min_amplitude: 0.001
+        max_amplitude: 0.015
+        p: 0.1
+      Shift:
+        p: 0.1
+      AddBackgroundNoise:
+        p: 0.1
+        sounds_path: "data/augmentation_audios/RIRS_NOISES"
+        min_snr_in_db: 3.0
+        max_snr_in_db: 30.0
+      Gain:
+        p: 0.1
+        min_gain_in_db: -12.0
+        max_gain_in_db: 12.0
+      ApplyImpulseResponse:
+        p: 0.1
+        ir_path: "data/augmentation_audios/mit_ir"
+        # min_impulse_response_length: 48000
+        # max_impulse_response_length: 96000

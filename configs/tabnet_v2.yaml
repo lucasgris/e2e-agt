@@ -1,0 +1,253 @@
+defaults:
+  - etc
+  - _self_
+
+batch_size: 128
+num_workers: 16
+
+# By default, prediction_type is note_level, predict_onsets_and_frets=False and predict_tab=True.
+# If prediction_type is note_level, it will predict the frets column in the metadata, otherwise will predict the tablature (onsets) 
+# To predict both targets, set predict_onsets_and_frets as True
+prediction_type: "note_level"  # note_level or frame_level
+predict_onsets_and_frets: false  
+predict_notes: false
+predict_tab: true
+
+quantize_targets: true
+
+insert_ffm: false
+freeze_finetune_updates: 0
+freeze_only_feature_extractor: false
+target_len_frames: 100
+apply_softmax: True
+class_probabilities: False
+
+checkpoint: 
+  continue_training_from: null
+  finetune_from_model: null
+  save_interval_updates: 25000  
+  keep_interval_updates: 0 
+  no_epoch_checkpoints: False 
+  save_dir: checkpoints
+
+model:
+  arch: TabNet
+  num_strings: ${num_strings}
+  predict_tab: ${predict_tab}
+  predict_onsets_and_frets: ${predict_onsets_and_frets}
+  predict_notes: ${predict_notes}
+  note_octaves: ${NOTE_OCTAVES}
+  frame_wise: True
+  summary: True
+  max_input_dim: 120000
+  fret_size: 21
+  input_size: '(1, ${model.max_input_dim})'
+  # mask_z_training: 
+  #   use_mask_emb: true
+  #   n_time_masks: [5]
+  #   mask_length: [1, 10]
+  #   dim: ${model.encoder_hidden_size}
+  time_masking:
+    mask_time_prob: 0.4
+    use_mask_emb: true
+    num_mask_time_steps: 2
+
+  encoder_hidden_size: 512
+  code_vector_size: 72
+
+  # ================= Feature Extractor =================
+  feature_extractor:
+    type: ConvFeatureExtractor
+    config:
+      feature_extractor: nnAudio # nnAudio if you pass raw audio else null  
+      nnAudio:
+        feature: CQT
+        cqt_params: ${audio.cqt_params}
+      spec_augment: 
+        max_mask_pct: 0.1
+        n_freq_masks: 5
+        n_time_masks: 5
+      init_layer:
+        dim: 24
+        group_normalization: false
+        batch_normalization: true
+        instance_normalization: false
+        kernel: [3, 3]
+        stride: [1, 1]
+        padding: [1, 1]
+        dilation: [2, 2] #[3, 3]
+        dropout: 0.25
+        activation: "mish"  
+        pooling: true
+        pooling_ks: [2, 1]
+        upsample: false
+        upsample_ks: [2, 2]
+      conv_block_kernels: [[3, 3], [3, 3], [3, 3], [3, 3], [3, 3]]
+      conv_block_dims: 
+        - 48 
+        - 96 
+        - 192 
+        - 384 
+        - ${model.encoder_hidden_size}
+      conv_skip_connection: true
+      conv_block:
+        dropout: 0.25
+        group_normalization: false
+        batch_normalization: true
+        instance_normalization: false
+        groups: 1 #${num_strings}
+        activation: "mish"
+        dilation: [3, 3]
+        padding: [1, 1]
+        pooling: true
+        pooling_ks: [2, 1]
+        upsample: false
+        upsample_ks: [2, 2]
+      transpose_channels_height: false
+  conv_aggregation: 'conv'
+  conv_aggregation_input_dim: 1
+  # ===================================================
+
+  # ================== PROJECTION =====================
+  projection:
+    in_dim: ${model.encoder_hidden_size}
+    out_dim: ${model.code_vector_size}
+  use_projection_for_logits: false
+  # ===================================================
+
+  # ================= QUANTIZATION ====================
+  quantize_targets: ${quantize_targets}
+  quantizer:
+    num_code_vector_groups: 6 # Number of code vector divisions (Default: 2)
+    num_code_vectors_per_group: ${model.code_vector_size} # Number of code vectors (Default: 320)
+    extracted_feature_size: ${model.encoder_hidden_size} # Output dimension of feature extractor
+    code_vector_size: ${model.code_vector_size} # Dimension of quantized code vector (Default: 768)
+    gumbel_init_temperature: 2.0 # Initialized value of gumbel temperature (Default: 2)
+  # ===================================================
+
+  # ================= Context Network =================
+  context_network:
+    # ----------------- Transformer -------------------
+    # type: TransformerContextNetwork
+    # config: 
+    #   use_pre_conv: false
+    #   use_causal_conv: false
+    #   n_layers: 4
+    #   in_channels: ${model.encoder_hidden_size}
+    #   dim: ${model.encoder_hidden_size}
+    #   n_heads: 8
+    #   dropout: 0.25
+    #   activation: "relu"
+    # ------------------- LSTM ------------------------
+    # type: LSTMContextNetwork
+    # config:
+    #   in_channels: ${model.encoder_hidden_size}
+    #   dim: ${model.encoder_hidden_size}
+    #   n_layers: 3
+    #   bidirectional: False
+    #   dropout: 0.25
+    # ----------------- Causal Conv -------------------
+    type: CausalContextNetwork
+    config:
+      activation: "relu"
+      dilation: 1
+      dim: ${model.encoder_hidden_size}
+      dropout: 0.25
+      group_normalization: false
+      instance_normalization: false
+      batch_normalization: true
+      groups: 1
+      in_channels: ${model.encoder_hidden_size}
+      kernel_size: 3
+      n_layers: 3
+      padding: 1
+      num_strings: ${num_strings}
+  # ===================================================
+
+  # ====================== FC =========================
+  fc:
+    in_channels: ${model.encoder_hidden_size}
+    activation: "mish"
+    dropout: 0.25
+  use_fc: false
+  fc_shared: false
+  fencoder_hidden_sizes: [64]
+  # ===================================================
+
+  residual_dim: ${audio.cqt_params.n_bins}
+  concat_residual_last_layers: false
+  use_fc_string_block: true
+  use_ffm_embedding: false
+  insert_onset_feature: false
+  output_type: null
+  insert_ffm: ${insert_ffm}
+  output_per_string_tab: 23  # fret_size frets plus string alone and no playing detected plus *
+  target_len_frames: ${target_len_frames}
+  adaptative_pool_to_target_len: true
+  interpolate_target: true
+  output_notes:
+    activation: null # multi-label classification, it is recommended to keep null since the loss function will apply the sigmoid
+    in_dim: 64
+    out_dim: null
+    silence: false
+    string_block: true
+  concat_notes_string_block: false
+  detach_notes: true
+
+  # ================= FC String Block =================
+  fc_string_block:
+    bias: False
+    in_channels: ${model.encoder_hidden_size}
+    type: linear # conv2d, linear, conv1d
+    activation: False
+    output_per_string: ${model.output_per_string_tab}
+    target_len_frames: ${model.target_len_frames}
+    adaptative_pool_to_target_len: ${model.adaptative_pool_to_target_len}
+    interpolate_target: ${model.interpolate_target}
+  fc_string_block_tab: ${model.fc_string_block}
+  insert_onset_target_feature: False
+  fc_string_block_frets: ${model.fc_string_block}
+  fc_string_block_onsets: ${model.fc_string_block}
+# =====================================================
+
+audio:
+  feature: raw
+
+data:
+  note_octaves: ${NOTE_OCTAVES}
+  tuning: ${TUNING}
+  chromatic_scale: ${CHROMATIC_SCALE}
+  cache_data_mem: False
+  feature_size: ${model.max_input_dim}
+  ffm: ${ffm}
+  insert_ffm: ${insert_ffm}
+  features_dir: null
+  audio_dir: "./data/audio"
+  num_workers: ${num_workers}
+  train_batch_size: ${batch_size}
+  valid_batch_size: ${batch_size}
+  train_shuffle: True
+  test_batch_size: 1 
+  dummy_csv_file: ./data/dummy.csv
+  train_csv_file: ./data/guitarset.csv
+  valid_csv_file: ./data/valid.csv
+  test_csv_file: ./data/test.csv
+  fret_size: ${model.fret_size}
+  random_seed: ${random_seed}
+  target_len_frames: ${target_len_frames}
+  target_len_frames_upsample_method: interpolate # pad, interpolate
+  target_num_classes: 23
+  audio_augmentation: null
+
+optimization: 
+  max_epochs: 300
+  max_updates: null
+  learning_rate: 0.0001
+  accumulation_steps: 1
+  grad_norm_clip: null #1.0
+
+optimizer:
+  name: adam 
+  adam_betas: [0.9,0.98] 
+  adam_eps: 1e-06 
+  weight_decay: 0.01 

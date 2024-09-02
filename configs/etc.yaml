@@ -1,0 +1,121 @@
+tag: ${hydra.job.config_name}
+log_dir_name: "${now:%Y-%m-%d}/${now:%H-%M-%S}"
+log_dir_path: ./logs/${tag}/${log_dir_name}
+
+hydra:
+  run:
+    dir: ${log_dir_path} 
+  job_logging:
+    handlers:
+      file:
+        filename: ${hydra.run.dir}/${hydra.job.name}_${now:%Y-%m-%d}_${now:%H-%M-%S}.log  
+
+defaults:
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
+
+NOTE_OCTAVES: [E2, F2, F#2, G2, G#2, A2, A#2, B2, C3, C#3, D3, D#3, E3, F3, F#3, G3, G#3, A3, A#3, B3, C4, C#4, D4, D#4, E4, F4, F#4, G4, G#4, A4, A#4, B4, C5, C#5, D5, D#5, E5, F5, F#5, G5, G#5, A5, A#5, B5, C6, C#6, D6]
+CHROMATIC_SCALE: [C, C#, D, D#, E, F, F#, G, G#, A, A#, B]
+
+num_strings: 6
+log_level: "INFO"
+dry_run: false
+raise_error: true
+comment: ""
+random_seed: 1
+device: "cuda"
+use_amp: false
+tqdm: true
+tb_log_dir: tensorboard
+log_interval_steps: 100
+num_workers: 8
+print_examples_validation: true
+validate_interval_updates: 1000
+validate_interval_epochs: 100
+evaluate_before_training: false
+class_probabilities: false
+batch_size: 64
+trainer: ClassifierTrainer
+run_test_at_end: false
+save_weights: true
+segment_audio_frames: null
+
+preprocessing:
+  force_reprocess: False
+  skip_empty_notes: True
+
+audio:
+  feature_extractor: raw      # Choose from torchaudio, librosa, raw
+  loader: torchaudio          # Choose from torchaudio, librosa
+  sr: 24000                   # Target sample rate
+  mono: true                  # Set to true to set audio to mono
+  resample: true              # Set to true to resample audio
+  audio_load_sec: 5         # Duration of audio loaded in seconds. Null loads all the audio. 
+  slide_window_sec: 2.5       # Duration of the sliding window in seconds. Only used if audio_load_sec is not null.
+  normalize: false            # Set to true if audio should be normalized
+  feature: cqt                # Choose from cqt, spectrogram, melspectrogram, chroma_stft, raw
+  device: ${device}
+  chroma_stft_params:
+    sr: ${audio.sr}
+    n_fft: 2048
+    hop_length: 512
+    n_chroma: 84
+  cqt_params: 
+    sr: ${audio.sr}
+    n_bins: 84
+    hop_length: 512
+    bins_per_octave: 12
+  spectrogram_params:
+    n_fft: 512
+    win_length: 64
+    hop_length: 64
+  melspectrogram_params:
+    n_fft: 2048
+    win_length: null
+    hop_length: null
+    n_mels: 80
+    f_min: 0
+    f_max: null
+
+data:
+  num_strings: ${num_strings}
+  log_level: ${log_level}
+  target_len: 100
+  target_num_classes: 23
+  target_num_strings: ${num_strings}
+  features_dir: null
+  segments_dir: "./data/segments"
+  targets_dir: "./data/targets"
+  timestep_change: "random"  # "random" or value
+  max_input_dim: null
+  cache_data_mem: False
+  audio_dir: "./data/audio"
+  num_workers: ${num_workers}
+  train_batch_size: 8 
+  valid_batch_size: 1 
+  train_shuffle: False
+  test_batch_size: 1 
+  train_csv_file: null
+  valid_csv_file: null
+  test_csv_file: null
+  dummy_csv_file: null
+  onset_target_feature_size: null
+  augment_onset: 0
+  skip_cache: true
+  audio_augmentation: 
+    pitch_shift_steps: null 
+
+lr_scheduler: 
+  updates:
+    warmup:
+      init_lr: 0.00001
+      num_warmup: 1000
+      warmup_strategy: cos
+    name: ExponentialLR 
+    gamma: 0.998
+    interval: 100
+  epoch: null 
+  #   name: ReduceLROnPlateau 
+  #   metric: loss
+  #   factor: 0.95
+  #   patience: 1

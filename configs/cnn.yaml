@@ -1,0 +1,172 @@
+defaults:
+  - etc
+  - _self_
+
+batch_size: 92
+num_workers: 16
+
+# By default, prediction_type is note_level, predict_onsets_and_frets=False and predict_tab=True.
+# If prediction_type is note_level, it will predict the frets column in the metadata, otherwise will predict the tablature (onsets) 
+# To predict both targets, set predict_onsets_and_frets as True
+prediction_type: "note_level"  # note_level or frame_level
+predict_onsets_and_frets: false  
+predict_notes: false
+predict_tab: true
+
+insert_ffm: false
+freeze_finetune_updates: 0
+target_len_frames: 100
+apply_softmax: True
+class_probabilities: False
+
+checkpoint: 
+  continue_training_from: null
+  finetune_from_model: null
+  save_interval_updates: 25000  
+  keep_interval_updates: 0 
+  no_epoch_checkpoints: False 
+  save_dir: checkpoints
+
+model:
+  arch: CNN
+  num_strings: ${num_strings}
+  predict_tab: ${predict_tab}
+  predict_onsets_and_frets: ${predict_onsets_and_frets}
+  predict_notes: ${predict_notes}
+  note_octaves: ${NOTE_OCTAVES}
+  frame_wise: True
+  summary: True
+  max_input_dim: 120000
+  fret_size: 21
+  input_size: '(1, ${model.max_input_dim})'
+  conv_feature_extractor:
+    type: ConvFeatureExtractor
+    load_weights_from: null
+    config:
+      feature_extractor: nnAudio # nnAudio if you pass raw audio else null  
+      nnAudio:
+        feature: CQT
+        cqt_params: ${audio.cqt_params}
+      spec_augment: 
+        max_mask_pct: 0.05
+        n_freq_masks: 1
+        n_time_masks: 1
+      init_layer:
+        dim: 64
+        group_normalization: false
+        batch_normalization: true
+        instance_normalization: false
+        kernel: [3, 3]
+        stride: [1, 1]
+        padding: [1, 1]
+        dilation: [1,1] #[3, 3]
+        dropout: 0.25
+        activation: "mish"
+        pooling: false
+        pooling_ks: [2, 2]
+        upsample: false
+        upsample_ks: [2, 2]
+      conv_block_kernels: [[3, 3], [3, 3], [3, 3], [3, 3], [3, 3]]
+      conv_block_dims: [64, 64, 64, 64, 64]
+      conv_skip_connection: true
+      conv_block:
+        dropout: 0.25
+        group_normalization: false
+        batch_normalization: true
+        instance_normalization: false
+        groups: 1 #${num_strings}
+        activation: "mish"
+        dilation: [1,1] #[3, 3]
+        padding: [1, 1]
+        pooling: false
+        pooling_ks: [2, 2]
+        upsample: false
+        upsample_ks: [2, 2]
+  conv_aggregation: 'conv'
+  fc:
+    in_channels: 84
+    activation: "mish"
+    dropout: 0.25
+  use_fc: true
+  fc_shared: false
+  fc_dims: [256, 48]
+  use_self_attention: true
+  self_attention:
+    use_positional_encoding: true
+    embed_dim: 288  # fc_dims[-1] * num_strings
+    num_heads: 6
+    dropout: 0.25
+  residual_dim: ${audio.cqt_params.n_bins}
+  concat_residual_last_layers: false
+  use_fc_string_block: true
+  use_ffm_embedding: false
+  insert_onset_feature: false
+  output_type: null
+  insert_ffm: ${insert_ffm}
+  output_per_string_tab: 23  # fret_size frets plus string alone and no playing detected 
+  target_len_frames: ${target_len_frames}
+  adaptative_pool_to_target_len: true
+  interpolate_target: true
+  output_notes:
+    activation: null # multi-label classification, it is recommended to keep null since the loss function will apply the sigmoid
+    in_dim: 84
+    out_dim: null
+    silence: false
+    string_block: true
+  concat_notes_string_block: true
+  detach_notes: false
+  fc_string_block:
+    bias: False
+    in_channels: 48
+    type: linear # conv2d, linear, conv1d
+    activation: False
+    output_per_string: ${model.output_per_string_tab}
+    target_len_frames: ${model.target_len_frames}
+    adaptative_pool_to_target_len: ${model.adaptative_pool_to_target_len}
+    interpolate_target: ${model.interpolate_target}
+  fc_string_block_tab: ${model.fc_string_block}
+  insert_onset_target_feature: False
+  fc_string_block_frets: ${model.fc_string_block}
+  fc_string_block_onsets: ${model.fc_string_block}
+
+audio:
+  feature: raw
+
+data:
+  note_octaves: ${NOTE_OCTAVES}
+  tuning: ${TUNING}
+  chromatic_scale: ${CHROMATIC_SCALE}
+  cache_data_mem: False
+  feature_size: ${model.max_input_dim}
+  ffm: ${ffm}
+  insert_ffm: ${insert_ffm}
+  features_dir: null
+  audio_dir: "./data/audio"
+  num_workers: ${num_workers}
+  train_batch_size: ${batch_size}
+  valid_batch_size: ${batch_size}
+  train_shuffle: True
+  test_batch_size: 1 
+  dummy_csv_file: ./data/dummy.csv
+  train_csv_file: ./data/guitarset.csv
+  valid_csv_file: ./data/valid.csv
+  test_csv_file: ./data/test.csv
+  fret_size: ${model.fret_size}
+  random_seed: ${random_seed}
+  target_len_frames: ${target_len_frames}
+  target_len_frames_upsample_method: interpolate # pad, interpolate
+  target_num_classes: 23
+  audio_augmentation: null
+
+optimization: 
+  max_epochs: 10000
+  max_updates: null
+  learning_rate: 0.0001
+  accumulation_steps: 1
+  grad_norm_clip: null #1.0
+
+optimizer:
+  name: adam 
+  adam_betas: [0.9,0.98] 
+  adam_eps: 1e-06 
+  weight_decay: 0.01 

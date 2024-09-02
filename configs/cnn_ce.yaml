@@ -1,0 +1,27 @@
+defaults:
+  - etc
+  - cnn
+  - _self_
+
+predict_notes: false
+
+model:
+  fc_string_block:
+    bias: False
+
+criterions:
+  tab:
+    name: TabByStringFrameWiseLoss
+    config:
+      # weight_strings: null # [0.2650478920960651, 0.181273535298031, 0.12266970341609021, 0.1137282266249239, 0.11636185158227506, 0.20091879098261464]
+      compute_jit: True
+      # frame_smoothing_kernel: [0.25, 0.5, 0.75, 1, 0.75, 0.5, 0.25] 
+      # class_probs: True
+      # reduction: "sum"
+      # label_smoothing: 0
+      # compute_jit: false
+      frame_smoothing_kernel: null
+      class_probs: false
+  notes: null
+  criterion_weights: [1]
+
