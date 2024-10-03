@@ -15,19 +15,21 @@ class LinearBlock(nn.Module):
         block.append(
             nn.Linear(self.in_channels, self.dim)
         ) 
-        if self.cfg["dropout"] > 0:
-            block.append(nn.Dropout(self.cfg["dropout"]))
+
         if self.cfg["activation"] == "relu":
             block.append(nn.ReLU())
         elif self.cfg["activation"] == "mish":
             block.append(nn.Mish())
-        elif self.cfg["activation"] == "tanh":
-            block.append(nn.Tanh())
         elif self.cfg["activation"] == "gelu":
             block.append(nn.GELU())
+        elif self.cfg["activation"] == "leaky_relu":
+            block.append(nn.LeakyReLU())
         else:
             raise ValueError(f'Unsupported activation: {self.cfg["activation"]}')
-        
+
+        if self.cfg["dropout"] > 0:
+            block.append(nn.Dropout(self.cfg["dropout"]))
+            
         self.block = nn.Sequential(*block)
     
     def forward(self, x):
